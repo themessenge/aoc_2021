@@ -1,15 +1,27 @@
 package day12;
 
+import org.w3c.dom.Node;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
-import java.util.Stack;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class Main {
 
+    private static final String START = "start";
+    private static final String END = "end";
 
     public static void main(String[] args) throws IOException {
         File inputFile = new File("./src/day12/input.txt");
@@ -19,112 +31,52 @@ public class Main {
         while (scanner.hasNext()) {
             temps.add(scanner.nextLine());
         }
+
+        Map<String, List<String>> map = new HashMap<>();
+        temps.stream().map(line -> line.split("-"))
+            .forEach(path -> {
+                map.computeIfAbsent(path[0], key -> new ArrayList<>()).add(path[1]);
+                map.computeIfAbsent(path[1], key -> new ArrayList<>()).add(path[0]);
+            });
+
         scanner.close();
 
-
-        int result1 = solve1(temps);
+        int result1 = solve1(map);
         System.out.println("Result 1:" + result1);
-        long result2 = solve2(temps);
+        long result2 = solve2(map);
         System.out.println("Result 2:" + result2);
     }
 
-
-    private static int solve1(List<String> inputs) {
-        int sum = 0;
-        for (String line : inputs) {
-            Stack<Character> currStack = new Stack<>();
-            for (Character c : line.toCharArray()) {
-                if (c == '(' || c == '[' || c == '{' || c == '<') {
-                    currStack.push(c);
-                } else {
-                    if (c == ')' || c == ']' || c == '}' || c == '>') {
-                        Character top = currStack.pop();
-                        if (c == ')' && top != '(') {
-                            sum += 3;
-                            break;
-                        } else if (c == ']' && top != '[') {
-                            sum += 57;
-                            break;
-                        } else if (c == '}' && top != '{') {
-                            sum += 1197;
-                            break;
-                        } else if (c == '>' && top != '<') {
-                            sum += 25137;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        return sum;
+    public static int solve1(Map<String, List<String>> input) {
+        List<List<String>> paths = findPaths(input, START, END, Collections.emptyList(), false);
+        return paths.size();
     }
 
-    private static long solve2(List<String> inputs) {
-        List<String> notCorruptLines = new ArrayList<>();
-        for (String input : inputs) {
-            Stack<Character> currStack = new Stack<>();
-            boolean isCorrupt = false;
-            for (Character c : input.toCharArray()) {
-                if (c == '(' || c == '[' || c == '{' || c == '<') {
-                    currStack.push(c);
-                } else {
-                    if (c == ')' || c == ']' || c == '}' || c == '>') {
-                        Character top = currStack.pop();
-                        if (c == ')' && top != '(') {
-                            isCorrupt = true;
-                            break;
-                        } else if (c == ']' && top != '[') {
-                            isCorrupt = true;
-                            break;
-                        } else if (c == '}' && top != '{') {
-                            isCorrupt = true;
-                            break;
-                        } else if (c == '>' && top != '<') {
-                            isCorrupt = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if (!isCorrupt) {
-                notCorruptLines.add(input);
-            }
-        }
-        List<Long> scores = new ArrayList<>();
-        for (String notCorrupt : notCorruptLines) {
-            Stack<Character> currStack = new Stack<>();
-            List<Character> addChars = new ArrayList<>();
-            for (Character c : notCorrupt.toCharArray()) {
-                if (c == '(' || c == '[' || c == '{' || c == '<') {
-                    currStack.push(c);
-                } else {
-                    if (c == ')' || c == ']' || c == '}' || c == '>') {
-                        Character top = currStack.pop();
-                    }
-                }
-            }
-            while (!currStack.empty()) {
-                addChars.add(currStack.pop());
-            }
-            long score = 0;
-            for (Character c : addChars) {
-                score *= 5;
-                if (c == '(') {
-                    score += 1;
-                } else if (c == '[') {
-                    score += 2;
-                } else if (c == '{') {
-                    score += 3;
-                } else if (c == '<') {
-                    score += 4;
-                }
-            }
-            scores.add(score);
-        }
-
-        scores = scores.stream().sorted().collect(Collectors.toList());
-        return scores.get(scores.size() / 2);
+    public static int solve2(Map<String, List<String>> input) {
+        List<List<String>> paths = findPaths(input, START, END, Collections.emptyList(), true);
+        return paths.size();
     }
 
+    private static List<List<String>> findPaths(Map<String, List<String>> map, String start, String end, List<String> visited, boolean canDoubleVisitSmallCave) {
+        if (start.equals(end)) {
+            return Collections.singletonList(Collections.singletonList(start));
+        }
 
+        List<String> currentPath = new ArrayList<>(visited);
+        currentPath.add(start);
+
+        boolean isSecondSmallCaveVisit = start.toLowerCase().equals(start) && visited.contains(start);
+
+        List<String> visitable = map.get(start).stream()
+            .filter(cave -> !START.equals(cave))
+            .filter(cave -> cave.toUpperCase().equals(cave) || !visited.contains(cave) || (!isSecondSmallCaveVisit && canDoubleVisitSmallCave))
+            .collect(Collectors.toList());
+
+        List<List<String>> paths = new ArrayList<>();
+
+        visitable.forEach(cave -> paths.addAll(findPaths(map, cave, end, currentPath,
+            !isSecondSmallCaveVisit && canDoubleVisitSmallCave)));
+
+        return paths;
+    }
 }
